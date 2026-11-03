@@ -18,13 +18,11 @@ There is deliberately no index route: a prefix that answers its own bare path ad
 
 `present` is a filesystem fact about the member's package directory. `status` is what that member's own route answered, and it is `number | null`. A member that could not be reached is `status: null` **with a reason** — never `0` and never a `200`, because `0` is not an HTTP status and reads as a measurement that was never taken. The census therefore counts `absent` and `unmeasured` separately: a package that is not on disk and a package that is on disk but silent are different findings.
 
-## Install
+## Adopting it inside DSH
 
 A consumer installs the published pre-release only:
 
-```
-pnpm add dsh-meta-harness@next
-```
+A deployment stages the **published pre-release** tarball from the `next` dist-tag. The package is also the one entry that brings the whole meta layer: enabling it in a profile bundle list enables the bundle, which then reports each member as present, absent or unmeasured.
 
 A profile consumes a clone through a relative `link:` — an absolute path is not supported by this package or its siblings.
 
