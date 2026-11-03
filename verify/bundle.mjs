@@ -3,8 +3,9 @@
  * path can go RED rather than asserting that it is fine, and gives the Elixir reader a positive
  * control so "unmeasured" is a reading rather than an assumption.
  *
- *   node verify/bundle.mjs              # run it
- *   node verify/bundle.mjs --prove-red  # plant a wrong expectation; the run MUST fail
+ *   node verify/bundle.mjs                        # run against lib/index.js
+ *   node verify/bundle.mjs --prove-red            # plant a wrong expectation; the run MUST fail
+ *   node verify/bundle.mjs --bundle <path>        # run against an arbitrary artifact (the RED proof)
  *
  * A1  `status` answers 200 and its census adds up (present + absent = total; unmeasured is separate)
  * A2  a request with NO loopback Host header measures nothing — every member `status: null` WITH reason
@@ -16,13 +17,47 @@
  * A8  a stub control plane that answers both routes measures `4 of 4` — the positive control
  * M1  mutation: a reading with `status: 0` must fail the census contract
  * M2  mutation: a table read missing a member must fail the row-count assertion
+ * A9  the module exports EXACTLY the one Host service it reads: `inject` deep-equals ['webServer']
+ * A10 the module survives a Cordis-GATED ctx: a proxy whose undeclared service reads throw the real
+ *     `cannot get property "webServer" without inject`, and the gate itself is proven able to reject
+ *
+ * A9/A10 exist because the plain fake ctx in `mount()` bypasses Cordis's inject gate: a plugin that
+ * reads `ctx.webServer` without exporting `inject` passes A1-A8 here and then fails at REAL boot with
+ * `cannot get property "webServer" without inject`. The gate is an offline instrument for that boot.
  */
 import { createServer } from 'node:http'
-import { apply } from '../lib/index.js'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { readBeam } from '../src/host/elixir.ts'
 import { MEMBERS, ROUTES, ROUTE_PATH } from '../src/shared/protocol.ts'
 
 const proveRed = process.argv.includes('--prove-red')
+const bundleIndex = process.argv.indexOf('--bundle')
+const BUNDLE = bundleIndex >= 0 && process.argv[bundleIndex + 1]
+  ? resolve(process.argv[bundleIndex + 1])
+  : fileURLToPath(new URL('../lib/index.js', import.meta.url))
+
+/**
+ * Import one built artifact. The preserved pre-fix copies live under `tmp/lead-baseline/`, whose
+ * nearest package.json declares `type: commonjs`, so a `.js` ESM artifact there is not importable by
+ * path. A data URL carries the same source as ESM without changing the preserved file, which is what
+ * lets `--bundle` prove the pre-fix artifact RED.
+ * @param {string} file - absolute path to the artifact.
+ * @returns the module namespace.
+ */
+async function importArtifact(file) {
+  try {
+    return await import(pathToFileURL(file).href)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (!/Cannot use import statement outside a module|ERR_REQUIRE_ESM/i.test(message)) throw error
+    const source = readFileSync(file, 'utf8')
+    return await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`)
+  }
+}
+
+const libModule = await importArtifact(BUNDLE)
 let failures = 0
 let checks = 0
 
@@ -42,16 +77,63 @@ function need(condition, message) {
 }
 
 /** A fake host context that captures the ONE registered prefix handler. */
-function mount() {
+function mount(module = libModule) {
   let handler = null
   const logs = []
-  apply({
+  module.apply({
     webServer: { register(route) { handler = route.handler; this.route = route } },
     logger: { info: m => logs.push(m), warn: m => logs.push(m) },
     effect: fn => fn()
   })
   need(typeof handler === 'function', 'apply() did not register a handler')
   return { handler, logs }
+}
+
+/** Structural equality for the small option arrays this harness reads. */
+function deepEqual(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right)
+}
+
+/**
+ * Context properties every Cordis plugin may read without declaring an inject: the runtime surface,
+ * not services. `webServer` is deliberately absent — it is a SERVICE and only an `inject` entry
+ * makes it readable.
+ */
+const RUNTIME_PROPS = new Set([
+  'effect', 'logger', 'get', 'on', 'off', 'emit', 'set', 'provide', 'inject',
+  'plugin', 'fiber', 'scope', 'root', 'registry', 'runtime', 'reflect', 'dispose',
+  'then', 'toJSON', 'toString', 'valueOf', 'constructor', 'inspect', 'nodeType',
+])
+
+/**
+ * A ctx proxy that reproduces Cordis's inject gate: reading a string property that is neither a
+ * runtime property nor in the module's exported `inject` throws the exact real error. This is the
+ * offline mirror of `vendor/cordis/src/reflect.ts`'s gate, which is what failed real boot.
+ * @param {{ inject?: string[] }} module - the built artifact (its exported `inject`).
+ * @param {object} base - the backing fake context.
+ * @returns the gated context.
+ */
+function gatedCtx(module, base) {
+  const declared = new Set(Array.isArray(module.inject) ? module.inject : [])
+  return new Proxy(base, {
+    get(target, prop) {
+      if (typeof prop === 'symbol') return undefined
+      if (RUNTIME_PROPS.has(prop)) return Reflect.get(target, prop)
+      if (declared.has(prop)) return Reflect.get(target, prop)
+      throw new Error(`cannot get property ${JSON.stringify(prop)} without inject`)
+    },
+  })
+}
+
+/** The backing fake ctx a gated mount writes into, plus a way to read what it captured. */
+function captureCtx() {
+  const captured = { handler: null, logs: [] }
+  const base = {
+    webServer: { register(route) { captured.handler = route.handler } },
+    logger: { info: m => captured.logs.push(m), warn: m => captured.logs.push(m) },
+    effect: fn => fn(),
+  }
+  return { base, captured }
 }
 
 /** Drive one request through the captured handler and return the parsed body. */
@@ -157,6 +239,38 @@ await check('A8 a stub control plane that answers both routes measures 4 of 4 (p
   } finally {
     await new Promise(resolve => server.close(resolve))
   }
+})
+
+await check('A9 the module exports EXACTLY the one Host service it reads: inject deep-equals ["webServer"]', async () => {
+  need(deepEqual(libModule.inject, ['webServer']), `exported inject is ${JSON.stringify(libModule.inject)}, expected ["webServer"]`)
+  return "inject deep-equals ['webServer']"
+})
+
+await check('A10 the module survives a Cordis-GATED ctx, and the gate itself is proven able to reject', async () => {
+  const { base, captured } = captureCtx()
+  let mountError = null
+  try {
+    libModule.apply(gatedCtx(libModule, base))
+  } catch (error) {
+    mountError = error instanceof Error ? error.message : String(error)
+  }
+  need(mountError === null, `apply() under a gated ctx threw: ${mountError}`)
+  need(typeof captured.handler === 'function', 'apply() under a gated ctx did not register a prefix handler')
+
+  // Positive control for the GATE: with nothing declared, the same proxy MUST throw Cordis's exact
+  // message. If it does not, the gate is decorative and a missing `inject` would pass again.
+  const empty = gatedCtx({ inject: [] }, base)
+  let probeError = null
+  try { void empty.webServer } catch (error) { probeError = error instanceof Error ? error.message : String(error) }
+  need(
+    probeError === 'cannot get property "webServer" without inject',
+    `the gate did not reproduce Cordis's error; got: ${probeError}`,
+  )
+
+  // The handler mounted THROUGH the gate is the real one: drive one route.
+  const health = await drive(captured.handler, { path: `${ROUTE_PATH}/health` })
+  need(health.status === 200, `the gated handler answered ${health.status}, expected 200`)
+  return `declared ${JSON.stringify(libModule.inject)} mounts through the gate · undeclared read rejected with Cordis's exact message · /health 200`
 })
 
 await check('M1 MUTATION: a member reading with status 0 must FAIL the census contract', async () => {

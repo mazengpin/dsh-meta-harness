@@ -33,6 +33,16 @@ import { controlBase, readBeam } from './elixir.ts'
 /** Loader row name; the bundle patch mounts this package under `meta-harness`. */
 export const name = 'dsh-meta-harness'
 
+/**
+ * Only the web server is required.
+ *
+ * Cordis gates service access on the plugin's DECLARED inject: `ctx.webServer` below is a service
+ * read, and without this declaration the gate throws `cannot get property "webServer" without
+ * inject` at real boot, leaving the row unactivated. `logger` is a runtime property, not a service,
+ * and siblings read it without declaring it.
+ */
+export const inject = ['webServer']
+
 /** The request surface this plugin reads. Declared structurally so no `node:http` type is needed. */
 interface Req {
   method?: string

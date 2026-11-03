@@ -1,0 +1,18 @@
+# research.md - dsh-meta-harness
+## 1. The research question
+**Can a bundle report the state of the packages it composes without becoming a second implementation of any of them?** Stated so it can fail: can one route prefix answer, for each member, whether it is present on disk, which version it is, and what its own route answered - and keep present-but-silent distinct from not-on-disk - while every reading remains that member's own answer rather than a rule re-derived here.
+## 2. Measured evidence
+Both harnesses were run in the package root on 2026-11-03; every number below is printed by the run, not copied from a document.
+- `node verify/bundle.mjs` -> `checks: 12/12 passed`, and its `VERDICT: PASS` line names four routes answered, every absence carrying its reason, and the Elixir reader having a positive control.
+- `node verify/client-bundle.cjs` -> `checks: 6/6 passed`, bundle 8560 B.
+- The two add to **18 of 18**. The figure the documents carried before this run, `14 (10 + 4)`, was stale against the harnesses on disk and is corrected in place in `DISCLOSURE.md` and `ROADMAP.md`.
+- Elixir control-plane reader, in the same `bundle.mjs` run: `A7` against a dead plane prints `measured 0 of 4, every field names its reason`; `A8` against a stub that answers both routes prints `measured 4 of 4: modules=412 processes=57 fleet=2`. **The pair is the evidence:** `0 of 4` alone is also what a reader prints when it measures nothing at all, so the stub run is the positive control that proves the reader can measure.
+- Absence paths, in the same run: no `Host` header -> `census: total=8 present=8 absent=0 answered200=0 unmeasured=8`; a dead probe base -> `answered200=0 unmeasured=8` with every row naming its reason. `absent` and `unmeasured` are separate counts, which is the distinction the package exists to make.
+- The falsifier was executed, not asserted: `node verify/bundle.mjs --prove-red` -> **exit 3**.
+- Not-a-second-implementation is checked structurally: `A9` asserts the host module injects exactly `["webServer"]`, `A10` proves that declared read mounts through a gated context while an undeclared read is rejected, `M1` proves a reading of `status: 0` breaks the census contract, and `M2` proves a truncated member table breaks the row count (`7 != 8`).
+## 3. What is NOT MEASURED
+- **The package has never been booted.** No route of it has answered on a running host. `answered200` is 0 in every run, and that 0 is the absence of a boot, not a census of a profile.
+- **No real member census exists.** `present=8` is a filesystem fact about the eight declared package directories; not one of those members was reached over its live route, so no row carries a real member answer.
+- **"One thing instead of eight" is measured only in the narrow sense:** one route prefix, and one registered sidebar row and one keyed panel sharing one id (`C1`, `C2`). It is not measured as a user finding it, and it is not measured as eight members actually being composed, because no member was up.
+## 4. Next measurement
+Boot a profile with the package in `dsh.profile.bundles`, then read `GET /meta-harness/api/status`. Expect 200 and eight rows, each carrying either that member's live status or the reason it is unmeasured. Then stop exactly one member and re-read: expect that row's `present` still true, its `status` `null` with a reason, and the census counting it under `unmeasured` rather than `absent`. **That second reading is the one that decides the question:** a bundle reports member state without being a second implementation only if it can report a member's silence differently from a member's absence, and only a booted profile can produce a silence.
