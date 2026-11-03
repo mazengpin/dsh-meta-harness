@@ -18,13 +18,13 @@ There is deliberately no index route: a prefix that answers its own bare path ad
 
 `present` is a filesystem fact about the member's package directory. `status` is what that member's own route answered, and it is `number | null`. A member that could not be reached is `status: null` **with a reason** — never `0` and never a `200`, because `0` is not an HTTP status and reads as a measurement that was never taken. The census therefore counts `absent` and `unmeasured` separately: a package that is not on disk and a package that is on disk but silent are different findings.
 
-## Adopting it inside DSH
+## Adopting it inside DSH — the bundle is the entry
 
-A consumer installs the published pre-release only:
-
-A deployment stages the **published pre-release** tarball from the `next` dist-tag. The package is also the one entry that brings the whole meta layer: enabling it in a profile bundle list enables the bundle, which then reports each member as present, absent or unmeasured.
-
-A profile consumes a clone through a relative `link:` — an absolute path is not supported by this package or its siblings.
+The bundle is how a deployment gets the whole meta layer through **one** profile entry, instead of discovering each package separately and hoping the set is complete.
+What the deployment must already have: a profile whose web server serves loopback routes, and whatever member packages are present on disk — a member that is not there is a reported state, not a precondition.
+The bundle reports every member as `present`, `absent` or `unmeasured`. `present` is a filesystem fact; `status` is what that member own route answered; a member that could not be reached is `status: null` **with a reason**, never a zero, because a zero is not an HTTP status and reads as a measurement that was never taken.
+Absent and unmeasured are counted separately on purpose: a package that is not on disk and a package that is on disk but silent are different findings, and collapsing them loses the only distinction a stranger needs.
+A source preview is readable and reviewable and is not an install target; adoption is by the published release, staged by the deployment that consumes it.
 
 ## Develop it
 
