@@ -1,6 +1,7 @@
 # ROADMAP — dsh-meta-harness
 
 ## Done
+- Elixir reader: `GET /meta-harness/api/elixir` reads the control plane beam and fleet status; a dead plane is `measured 0 of 4` with reasons and the stub positive control is `measured 4 of 4`.
 - Host half: three routes under `/meta-harness/api` (`status`, `members`, `health`), with a 404 rendered from the route table.
 - Client half: one sidebar row and one keyed panel sharing ONE id constant.
 - `verify/bundle.mjs`: 8 of 8 checks, driving the three routes and every absence path; `--prove-red` exits 3.

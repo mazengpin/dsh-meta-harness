@@ -28,6 +28,7 @@ import { readFileSync } from 'node:fs'
 import { ROUTE_PATH, MEMBERS, ROUTES, censusOf, advertisedPaths } from '../shared/protocol.ts'
 import type { HealthResponse, MembersResponse, StatusResponse } from '../shared/protocol.ts'
 import { probeBaseFrom, readMembers } from './readings.ts'
+import { controlBase, readBeam } from './elixir.ts'
 
 /** Loader row name; the bundle patch mounts this package under `meta-harness`. */
 export const name = 'dsh-meta-harness'
@@ -124,6 +125,12 @@ export function apply(ctx: HostContext): void {
     if (tail === 'members') {
       const body: MembersResponse = { ok: true, prefix: ROUTE_PATH, members: MEMBERS }
       json(res, 200, body)
+      return
+    }
+
+    if (tail === 'elixir') {
+      const beam = await readBeam(controlBase())
+      json(res, 200, { ok: true, prefix: ROUTE_PATH, ...beam })
       return
     }
 

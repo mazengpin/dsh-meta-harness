@@ -191,6 +191,7 @@ export const ROUTES: readonly RouteSpec[] = [
   { tail: 'status', method: 'GET', summary: 'Bundle census: every member, its version, whether it is present, and what its route answered.' },
   { tail: 'members', method: 'GET', summary: 'The composed member table itself, with no live reads.' },
   { tail: 'health', method: 'GET', summary: 'This bundle own health. Cheap, and it probes no member.' },
+  { tail: 'elixir', method: 'GET', summary: 'The Elixir app stage read over loopback: loaded modules, processes, uptime and fleet units, each either a value or the reason it is unmeasured.' },
 ]
 
 /** Every path this prefix advertises, derived in one place so a listing cannot drift. */

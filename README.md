@@ -10,6 +10,7 @@ It re-implements no member capability: every member reading is read from that me
 | `GET /meta-harness/api/status` | the bundle census — per member: present on disk, version, the status its own route answered, and the reason when it did not |
 | `GET /meta-harness/api/members` | the declared member table, so the surface states its own scope |
 | `GET /meta-harness/api/health` | cheap liveness, naming the routes this prefix serves; it runs no member probe |
+| `GET /meta-harness/api/elixir` | the Elixir app stage over loopback: loaded modules, processes, uptime and fleet units, each a value or the reason it is unmeasured |
 
 There is deliberately no index route: a prefix that answers its own bare path advertises a root nobody asked for, and the 404 body is rendered from the route table so it cannot name a path the table does not serve.
 
@@ -37,7 +38,7 @@ pnpm run build
 node verify/bundle.mjs
 ```
 
-`verify/bundle.mjs` drives the three routes through a fake host context and asserts every absence path, including that a reading with `status: 0` breaks the census contract. `node verify/bundle.mjs --prove-red` plants the wrong expectation and must exit non-zero.
+`verify/bundle.mjs` drives the four routes through a fake host context and asserts every absence path, including that a reading with `status: 0` breaks the census contract. `node verify/bundle.mjs --prove-red` plants the wrong expectation and must exit non-zero.
 
 ## Roadmap at a glance
 
