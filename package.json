@@ -1,0 +1,69 @@
+{
+  "name": "dsh-meta-harness",
+  "version": "0.9.0",
+  "type": "module",
+  "private": false,
+  "description": "One /meta-harness route prefix and one keyed sidebar entry that COMPOSE the eight existing dsh-meta-* packages and report which of them is present, absent or unmeasured. It re-implements no member capability: every member reading is {present, status, reason} and an unreachable member is status null WITH a reason, never 0 and never a 200.",
+  "license": "MIT",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./shared/protocol": "./src/shared/protocol.ts",
+    "./src/*": "./src/*",
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "lib/client.js.map",
+    "src",
+    "cordis.patch.yml",
+    "README.md",
+    "CONTEXT.md",
+    "DISCLOSURE.md",
+    "LICENSE",
+    "ROADMAP.md"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0",
+    "dsh": ">=0.2.2-0 <0.3.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-layout"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "verify": "node verify/bundle.mjs",
+    "prepublishOnly": "pnpm run typecheck && pnpm run build && pnpm run verify"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "~18.3.1",
+    "react": "^18.2.0",
+    "tsdown": "^0.22.2",
+    "typescript": "^5.6.0"
+  },
+  "publishConfig": {
+    "tag": "next"
+  },
+  "status": "pre-release",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mazengpin/dsh-meta-harness.git"
+  },
+  "homepage": "https://github.com/mazengpin/dsh-meta-harness#readme"
+}

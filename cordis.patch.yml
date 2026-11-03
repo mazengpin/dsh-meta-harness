@@ -1,0 +1,25 @@
+# dsh-meta-harness bundle patch.
+#
+# `dsh.bundle.patch` in package.json points here. A profile that lists this
+# package in `dsh.profile.bundles` merges this layer at boot, and the single
+# `insert` below mounts the plugin Host half as the loader row `meta-harness`.
+# The row `name` is the package name, so the loader resolves `lib/index.js` (the
+# package `.` export) from the profile `node_modules` — which is where the
+# relative `link:` dependency puts this checkout.
+#
+# The row id is `meta-harness`. It is NOT any member id: the eight members this
+# package composes keep their own loader rows, their own route prefixes and
+# their own sidebar seats. This row is strictly ADDITIVE and re-implements no
+# member capability, so removing it restores exactly the profile that was there.
+#
+# The Client half is not mounted from here. `dsh.client` in package.json marks
+# the package as a Web Client/Host package; the boot graph reads
+# `exports["./client"]` and serves `lib/client.js` to the browser, where it
+# registers itself with
+# `window.__ModuleLoader__.load({ id: 'dsh-meta-harness', factory })`.
+#
+# There is exactly one mount source and no disabled/!!js guard, so a profile
+# that consumes this package has exactly one row for it.
+- insert:
+    - id: meta-harness
+      name: 'dsh-meta-harness'
