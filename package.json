@@ -47,7 +47,7 @@
   "scripts": {
     "build": "tsdown",
     "typecheck": "tsc --noEmit",
-    "verify": "node verify/bundle.mjs",
+    "verify": "node verify/bundle.mjs && node verify/client-bundle.cjs",
     "prepublishOnly": "pnpm run typecheck && pnpm run build && pnpm run verify"
   },
   "devDependencies": {
